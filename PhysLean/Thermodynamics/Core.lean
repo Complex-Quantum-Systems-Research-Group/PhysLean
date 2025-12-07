@@ -1,4 +1,59 @@
 /-
+  TODO / Roadmap for Thermodynamics/Core.lean
+
+  1. Smooth structure and derivatives
+     - Decide how to represent differentiability on `State` (e.g. `State` as a normed space
+       or manifold).
+     - Introduce `fderiv` / partial derivatives for `U`, `S`, and each `X i`.
+     - Replace the `Prop` placeholders in `FirstLawEnergy` and `FirstLawEntropy` with
+       precise derivative equalities:
+         * energyForm : dU = T dS + ∑ᵢ Yᵢ dXᵢ
+         * entropyForm : dS = (1/T) dU - ∑ᵢ (Yᵢ/T) dXᵢ
+
+  2. Properties of entropy (entropy representation)
+     - Make `concave` a concrete statement (e.g. `StrictConcaveOn ℝ S_of_ext domain`).
+     - Make `extensive` precise (homogeneity of degree 1 in all extensive variables).
+     - Make `mono_U` explicit (e.g. ∂S/∂U > 0).
+     - Make `stability` precise (e.g. positivity of heat capacity, concavity constraints).
+
+  3. Properties of energy (energy representation)
+     - Make `convex` a concrete statement (e.g. `ConvexOn` for `U_of_ext`).
+     - Make `extensive` precise in this representation as well.
+     - Make `mono_S` explicit (e.g. ∂U/∂S > 0).
+     - Clarify and formalize stability conditions in the energy representation.
+
+  4. Equivalence of representations
+     - Prove conditions under which an `EntropyRepresentation` induces an
+       `EnergyRepresentation` (Legendre transform) and vice versa.
+     - Add helper lemmas to move between the two representations.
+
+  5. Intensive variables
+     - Define T and Yᵢ in each representation via derivatives:
+         * entropy rep:  1/T = ∂S/∂U,  Yᵢ/T = -∂S/∂Xᵢ
+         * energy rep:   T   = ∂U/∂S,  Yᵢ  = ∂U/∂Xᵢ
+     - Connect these definitions to `FirstLawEnergy` and `FirstLawEntropy`.
+
+  6. Global thermodynamic identities
+     - Euler relation (e.g. U = TS + ∑ᵢ Yᵢ Xᵢ for extensive systems).
+     - Gibbs–Duhem relation.
+     - Provide abstract statements in terms of `ThermodynamicSystem` and representations.
+
+  7. Constraints and equilibrium
+     - Add lemmas about existence/uniqueness of maximizers in `equilibriumStates` given
+       concavity/strict concavity.
+     - Prove generic “equilibrium ⇔ equality of intensive variables” results for composites,
+       abstracting the condition for thermal equilibrium, mechanical equilibrium, etc.
+
+  8. Physical domain / admissible states
+     - Optionally introduce a notion of "physical domain" in `ExtSpace ι` and relate it to
+       `Material.Physical`.
+     - Clarify how positivity of U, S, and other extensives is enforced (state space vs.
+       representation domain).
+
+  (Concrete models like the ideal gas, van der Waals gas, mixtures, etc., will live in
+   separate files and instantiate these abstract notions.)
+-/
+/-
   Thermodynamics/Core.lean
 
   Core abstractions for a general thermodynamic formalization in Lean 4.
@@ -152,6 +207,61 @@ structure EnergyRepresentation (ι : Type u)
   extensive : Prop   -- U is homogeneous of degree 1 in extensives.
   mono_S    : Prop   -- ∂U/∂S > 0.
   stability : Prop   -- Stability conditions.
+
+/-! ## 2.1 Intensive variables and the first law -/
+
+/--
+Intensive variables and the first law in the **energy representation**.
+
+Mathematically, for a system with fundamental equation
+  U = U(S, Xᵢ),
+the first law is the differential identity
+
+  dU = T dS + ∑ᵢ Yᵢ dXᵢ.
+
+Here we keep the differential statement as an abstract `Prop`; later we
+can replace it with an explicit equality between Fréchet derivatives
+once we equip `State` with a smooth structure.
+-/
+structure FirstLawEnergy (ι : Type u)
+    (P : ThermodynamicSystem ι)
+    (E : EnergyRepresentation ι P) where
+  /-- Temperature as a function on the state space. -/
+  T : P.State → ℝ
+  /-- Generalized forces conjugate to the extensive variables `X i`. -/
+  Y : ι → P.State → ℝ
+  /-- Differential form of the first law in the energy representation.
+      Intended meaning (schematic):
+
+        dU = T dS + ∑ᵢ Yᵢ dXᵢ.
+
+      This will eventually be expressed via derivatives (e.g. `fderiv`). -/
+  energyForm : Prop
+
+/--
+Intensive variables and the first law in the **entropy representation**.
+
+For a system with fundamental equation
+  S = S(U, Xᵢ),
+the first law can be written as
+
+  dS = (1/T) dU - ∑ᵢ (Yᵢ / T) dXᵢ.
+
+Again, the differential identity is kept as a `Prop` for now, to be
+refined later using the appropriate calculus on the state space.
+-/
+structure FirstLawEntropy (ι : Type u)
+    (P : ThermodynamicSystem ι)
+    (Srepr : EntropyRepresentation ι P) where
+  /-- Temperature as a function on the state space. -/
+  T : P.State → ℝ
+  /-- Generalized forces conjugate to the extensive variables `X i`. -/
+  Y : ι → P.State → ℝ
+  /-- Differential form of the first law in the entropy representation.
+      Intended meaning (schematic):
+
+        dS = (1/T) dU - ∑ᵢ (Yᵢ / T) dXᵢ. -/
+  entropyForm : Prop
 
 /--
 Full thermodynamic model: a core thermodynamic system equipped with (optional)
