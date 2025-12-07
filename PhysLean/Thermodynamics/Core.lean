@@ -1,11 +1,11 @@
 /-
-  Thermo/Core.lean
+  Thermodynamics/Core.lean
 
   Core abstractions for a general thermodynamic formalization in Lean 4.
 
   This file defines:
 
-  * `ProtoThermodynamicSystem`:
+  * `ThermodynamicSystem`:
       - basic macroscopic system with state space, U, S, and a family of
         other extensive variables Xᵢ indexed by `ι`.
 
@@ -14,8 +14,9 @@
       - `EntropyRepresentation` (S = S(U, Xᵢ))
       - `EnergyRepresentation`  (U = U(S, Xᵢ))
 
-  * `ThermodynamicSystem`:
-      - a proto system together with optional entropy/energy representations.
+  * `ThermodynamicModel`:
+      - a thermodynamic system together with optional entropy/energy
+        representations.
 
   * Constraints, closure relations, materials:
       - `Constraint`, `ClosureRelation`, `Material`
@@ -23,8 +24,8 @@
   * Equilibrium as entropy maximization:
       - `equilibriumStates`
 
-  * Composition of proto-systems:
-      - `ProtoThermodynamicSystem.comp`
+  * Composition of systems:
+      - `ThermodynamicSystem.comp`
 
   * A skeleton for generalized intensives and the first law:
       - `Intensives`
@@ -37,10 +38,10 @@ namespace Thermodynamics
 
 universe u v
 
-/-! ## 1. Core proto-thermodynamic system -/
+/-! ## 1. Core thermodynamic system -/
 
 /--
-`ProtoThermodynamicSystem ι` is the bare macroscopic object we work with.
+`ThermodynamicSystem ι` is the bare macroscopic object we work with.
 
 * `State` : the set of (equilibrium) macroscopic states.
 * `U`     : internal energy.
@@ -53,31 +54,31 @@ they can be trivial/unused (e.g. constant functions) if desired.
 Non-negativity is *not* enforced here at the type level; instead it is
 encoded as properties in the thermodynamic representations.
 -/
-structure ProtoThermodynamicSystem (ι : Type u) where
+structure ThermodynamicSystem (ι : Type u) where
   State : Type v
   U : State → ℝ
   S : State → ℝ
   X : ι → State → ℝ
 
-namespace ProtoThermodynamicSystem
+namespace ThermodynamicSystem
 
 variable {ι : Type u}
 
 /--
-Non-interacting composition of two proto-systems with the same index set of
+Non-interacting composition of two systems with the same index set of
 extensive variables.
 
 * The state space is the Cartesian product `A.State × B.State`.
 * Extensive quantities (U, S, Xᵢ) are **additive**.
 -/
-def comp (A B : ProtoThermodynamicSystem ι) :
-    ProtoThermodynamicSystem ι :=
+def comp (A B : ThermodynamicSystem ι) :
+    ThermodynamicSystem ι :=
 { State := A.State × B.State
 , U := fun x => A.U x.1 + B.U x.2
 , S := fun x => A.S x.1 + B.S x.2
 , X := fun i x => A.X i x.1 + B.X i x.2 }
 
-end ProtoThermodynamicSystem
+end ThermodynamicSystem
 
 /-! ## 2. Entropy and energy representations -/
 
@@ -90,7 +91,7 @@ def ExtSpaceEnergy (ι : Type u) := ℝ × (ι → ℝ)
 /--
 Entropy representation in the sense of Callen: `S = S(U, Xᵢ)`.
 
-This structure ties the abstract entropy `P.S` of a proto system to a scalar
+This structure ties the abstract entropy `P.S` of a system to a scalar
 function on the extensive coordinate space `(U, Xᵢ)`, and packages
 Callen-style axioms as propositional fields.
 
@@ -100,7 +101,7 @@ We *also* encode non-negativity of U and S as properties:
 * `S_nonneg` : entropy is ≥ 0 for all states.
 -/
 structure EntropyRepresentation (ι : Type u)
-    (P : ProtoThermodynamicSystem ι) where
+    (P : ThermodynamicSystem ι) where
   /-- Map each state to its extensive coordinates `(U, Xᵢ)`. -/
   coord : P.State → ExtSpace ι
   /-- Injectivity: states are uniquely determined (on the manifold of interest)
@@ -131,7 +132,7 @@ This is dual to the entropy representation. We also encode non-negativity:
 * `U_nonneg` : energy is ≥ 0 for all states.
 -/
 structure EnergyRepresentation (ι : Type u)
-    (P : ProtoThermodynamicSystem ι) where
+    (P : ThermodynamicSystem ι) where
   /-- Map each state to its extensive coordinates `(S, Xᵢ)`. -/
   coord : P.State → ExtSpaceEnergy ι
   /-- Injectivity in the energy representation coordinates. -/
@@ -153,14 +154,14 @@ structure EnergyRepresentation (ι : Type u)
   stability : Prop   -- Stability conditions.
 
 /--
-Full thermodynamic system: a proto system equipped with (optional)
+Full thermodynamic model: a core thermodynamic system equipped with (optional)
 entropy and/or energy representations.
 
 In many cases we will start with just the entropy representation filled
 and leave the energy representation as `none` until we prove equivalence.
 -/
-structure ThermodynamicSystem (ι : Type u) where
-  core : ProtoThermodynamicSystem ι
+structure ThermodynamicModel (ι : Type u) where
+  core : ThermodynamicSystem ι
   entropyRep : Option (EntropyRepresentation ι core) := none
   energyRep  : Option (EnergyRepresentation ι core) := none
 
@@ -168,15 +169,15 @@ structure ThermodynamicSystem (ι : Type u) where
 
 /--
 A macroscopic **constraint**: a non-empty subset of the state space of a
-proto system, describing allowed states under given external conditions
+thermodynamic system, describing allowed states under given external conditions
 (e.g. fixed total energy, fixed volume, fixed particle numbers, etc.).
 -/
-structure Constraint {ι : Type u} (P : ProtoThermodynamicSystem ι) where
+structure Constraint {ι : Type u} (P : ThermodynamicSystem ι) where
   carrier : Set P.State
   nonempty : carrier.Nonempty
 
 /--
-A **closure relation** on a proto system: a predicate representing some
+A **closure relation** on a thermodynamic system: a predicate representing some
 equation of state or other algebraic/constitutive relation between
 thermodynamic variables.
 
@@ -184,11 +185,11 @@ Examples:
 * `p V = N k_B T` for an ideal gas.
 * More complicated relations specific to a material.
 -/
-structure ClosureRelation {ι : Type u} (P : ProtoThermodynamicSystem ι) where
+structure ClosureRelation {ι : Type u} (P : ThermodynamicSystem ι) where
   relation : P.State → Prop
 
 /--
-A **material**: a proto-thermodynamic system plus
+A **material**: a thermodynamic system plus
 
 * `Physical` : a predicate describing which states are physically allowed.
 * `closures` : a set of closure relations (equations of state, etc.).
@@ -197,7 +198,7 @@ In practice one often works on the subset of `State` where `Physical` holds
 and all closure relations are satisfied.
 -/
 structure Material (ι : Type u) where
-  core : ProtoThermodynamicSystem ι
+  core : ThermodynamicSystem ι
   Physical : core.State → Prop
   nonempty : ∃ x, Physical x
   closures : Set (ClosureRelation core)
@@ -205,7 +206,7 @@ structure Material (ι : Type u) where
 /-! ## 4. Equilibrium as entropy maximization -/
 
 /--
-Equilibrium states for a given constraint `K` on a proto system `P`, defined
+Equilibrium states for a given constraint `K` on a system `P`, defined
 via the **Max Entropy Principle**:
 
 `x` is an equilibrium state if
@@ -213,7 +214,7 @@ via the **Max Entropy Principle**:
 * its entropy is maximal among all constrained states:
     `∀ y ∈ K.carrier, S(y) ≤ S(x)`.
 -/
-def equilibriumStates {ι : Type u} (P : ProtoThermodynamicSystem ι)
+def equilibriumStates {ι : Type u} (P : ThermodynamicSystem ι)
     (K : Constraint P) : Set P.State :=
   { x | x ∈ K.carrier ∧ ∀ y ∈ K.carrier, P.S y ≤ P.S x }
 
@@ -235,9 +236,9 @@ This is currently a **skeletal** structure:
 Later we can implement this in terms of Fréchet derivatives (`fderiv`) or
 partial derivatives, once we decide on the smooth structure on `State`.
 -/
-structure Intensives (ι : Type u) (Tsys : ThermodynamicSystem ι) where
-  T : Tsys.core.State → ℝ
-  Y : ι → Tsys.core.State → ℝ
+structure Intensives (ι : Type u) (M : ThermodynamicModel ι) where
+  T : M.core.State → ℝ
+  Y : ι → M.core.State → ℝ
   firstLawDifferential : Prop
 
 end Thermodynamics
