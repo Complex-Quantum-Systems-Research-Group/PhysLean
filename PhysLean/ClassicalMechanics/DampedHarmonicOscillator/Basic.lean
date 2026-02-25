@@ -63,6 +63,8 @@ namespace ClassicalMechanics
 open Real
 open Space
 open InnerProductSpace
+open ContDiff
+open Time
 
 TODO "DHO01" "Define the DampedHarmonicOscillator structure with mass m, spring constant k,
   and damping coefficient γ."
@@ -204,6 +206,57 @@ noncomputable def energy (x : Time → ℝ) : Time → ℝ :=
 so the energy is non-increasing and not conserved when `S.γ > 0`. -/
 noncomputable def energyDissipationRate (x : Time → ℝ) : Time → ℝ :=
   fun t => - S.γ * (Time.deriv x t)^2
+
+
+
+theorem energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
+  (hx : ContDiff ℝ ∞ x):
+  Time.deriv (energy S x) t = - S.γ * (Time.deriv x t)^2 := by
+  -- Have our Equation of Motion
+  have heom := h1 t
+  -- Rearrange for substitution
+  have heom' : S.m * Time.deriv (Time.deriv x) t + S.k * x t =
+               - S.γ * Time.deriv x t := by linarith
+  -- Work with fderivs
+  rw [Time.deriv_eq]
+
+  -- Nice to have for later
+  have hdx  : Differentiable ℝ x          := hx.differentiable (by norm_num)
+  have hddx : Differentiable ℝ (∂ₜ x)     := deriv_differentiable_of_contDiff x hx
+
+  -- Break equation apart
+  simp only [energy, kineticEnergy, potentialEnergy, Pi.add_def]
+  rw [← Pi.add_def]
+
+  have hke : DifferentiableAt ℝ (fun i => (1/2 : ℝ) * S.m * ∂ₜ x i ^ 2) t := ((hddx t).pow 2).const_mul _
+  have hpe : DifferentiableAt ℝ (fun i => 1 / 2 * S.k * x i ^ 2) t :=  ((hdx t).pow 2).const_mul _
+  -- Separate energy derivative into potential and kinetic
+  rw [fderiv_add hke hpe]
+  -- Perform chain derivatives and move constants
+  rw [fderiv_const_mul (a := fun i => ∂ₜ x i ^ 2) ((hddx t).pow 2)]
+  rw [fderiv_const_mul (a := fun i => x i ^ 2) ((hdx t).pow 2)]
+  rw [fderiv_pow 2 (hddx t)]
+  rw [fderiv_pow 2 (hdx t)]
+
+  norm_num
+  rw [← Time.deriv, ← Time.deriv]
+  linear_combination (Time.deriv x t) * heom'
+
+theorem energy_not_conserved (x: Time → ℝ) (h1 : S.EquationOfMotion x)
+  (hx : ContDiff ℝ ∞ x)
+  (hdx : Time.deriv x t ≠ 0)
+  (hγ : S.γ > 0) : Time.deriv (energy S x) t < 0 := by
+  have he : Time.deriv (energy S x) t = - S.γ * (Time.deriv x t)^2 :=
+    energy_dissipation_rate S x h1 hx
+  rw [he]
+
+  have hp : 0 < ∂ₜ x t ^ 2 := by
+    rw [sq_pos_iff]
+    exact hdx
+
+  rw [neg_mul S.γ (∂ₜ x t ^ 2)]
+  exact neg_neg_of_pos (mul_pos hγ hp)
+
 
 /-!
 
