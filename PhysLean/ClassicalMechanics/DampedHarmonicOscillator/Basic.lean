@@ -238,16 +238,10 @@ lemma energy_not_conserved (x: Time → ℝ) (h1 : S.EquationOfMotion x)
     (hdx : Time.deriv x t ≠ 0)
     (hγ : S.γ > 0) :
     Time.deriv (energy S x) t < 0 := by
-  have he : Time.deriv (energy S x) t = - S.γ * (Time.deriv x t)^2 :=
-    energy_dissipation_rate S x h1 hx
-  rw [he]
 
-  have hp : 0 < ∂ₜ x t ^ 2 := by
-    rw [sq_pos_iff]
-    exact hdx
-
+  rw [energy_dissipation_rate S x h1 hx]
   rw [neg_mul S.γ (∂ₜ x t ^ 2)]
-  exact neg_neg_of_pos (mul_pos hγ hp)
+  refine neg_neg_of_pos (mul_pos hγ (sq_pos_iff.mpr hdx))
 
 /-!
 
