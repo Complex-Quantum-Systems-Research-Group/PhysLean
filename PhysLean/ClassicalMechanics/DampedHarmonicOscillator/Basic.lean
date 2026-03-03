@@ -204,21 +204,19 @@ noncomputable def energyDissipationRate (x : Time → ℝ) : Time → ℝ :=
 lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
     (hx : ContDiff ℝ ∞ x) :
     Time.deriv (energy S x) t = - S.γ * (Time.deriv x t)^2 := by
-  -- Have our Equation of Motion
-  have heom := h1 t
-  -- Rearrange for substitution
-  have heom' : S.m * Time.deriv (Time.deriv x) t + S.k * x t =
-              - S.γ * Time.deriv x t := by linarith
-  -- Work with fderivs
-  rw [Time.deriv_eq]
 
-  have hdx : Differentiable ℝ x := hx.differentiable (by norm_num)
-  have hddx : Differentiable ℝ (∂ₜ x) := deriv_differentiable_of_contDiff x hx
+  -- Rearrange Equation of Motion
+  have heom' : S.m * Time.deriv (Time.deriv x) t + S.k * x t =
+              - S.γ * Time.deriv x t := by linarith [h1 t]
 
   -- Break equation apart
   rw [energy]
   unfold kineticEnergy potentialEnergy
 
+  rw [Time.deriv_eq]
+
+  have hdx : Differentiable ℝ x := hx.differentiable (by norm_num)
+  have hddx : Differentiable ℝ (∂ₜ x) := deriv_differentiable_of_contDiff x hx
   have hKE := ((hddx t).hasFDerivAt.pow 2).const_mul (1/2 * S.m)
   have hPE := ((hdx t).hasFDerivAt.pow 2).const_mul (1/2 * S.k)
 
