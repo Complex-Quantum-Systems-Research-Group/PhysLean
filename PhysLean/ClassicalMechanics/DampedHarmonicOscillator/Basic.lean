@@ -201,7 +201,7 @@ noncomputable def energyDissipationRate (x : Time → ℝ) : Time → ℝ :=
   fun t => - S.γ * (Time.deriv x t)^2
 
 /-- Derives the energy dissipation rate from the equation of motion -/
-theorem energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
+lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
     (hx : ContDiff ℝ ∞ x) :
     Time.deriv (energy S x) t = - S.γ * (Time.deriv x t)^2 := by
   -- Have our Equation of Motion
@@ -236,7 +236,7 @@ theorem energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
   rw [← Time.deriv, ← Time.deriv]
   linear_combination (Time.deriv x t) * heom'
 
-theorem energy_not_conserved (x: Time → ℝ) (h1 : S.EquationOfMotion x)
+lemma energy_not_conserved (x: Time → ℝ) (h1 : S.EquationOfMotion x)
     (hx : ContDiff ℝ ∞ x)
     (hdx : Time.deriv x t ≠ 0)
     (hγ : S.γ > 0) :
