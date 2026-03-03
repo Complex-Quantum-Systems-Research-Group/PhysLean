@@ -212,7 +212,6 @@ lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
   -- Work with fderivs
   rw [Time.deriv_eq]
 
-  -- Nice to have for later
   have hdx : Differentiable ℝ x := hx.differentiable (by norm_num)
   have hddx : Differentiable ℝ (∂ₜ x) := deriv_differentiable_of_contDiff x hx
 
@@ -220,14 +219,10 @@ lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
   rw [energy]
   unfold kineticEnergy potentialEnergy
 
-  -- Break additive terms out of derivative
-  rw [fderiv_add (f := fun i => (1/2 : ℝ) * S.m * ∂ₜ x i ^ 2)
-      (g := fun i => (1/2 : ℝ) * S.k * x i ^ 2)
-      (((hddx t).pow 2).const_mul _) (((hdx t).pow 2).const_mul _)]
-  -- Perform the derivative
-  rw [fderiv_const_mul (a := fun i => ∂ₜ x i ^ 2) ((hddx t).pow 2),
-      fderiv_const_mul (a := fun i => x i ^ 2) ((hdx t).pow 2),
-      fderiv_pow 2 (hddx t), fderiv_pow 2 (hdx t)]
+  have hKE := ((hddx t).hasFDerivAt.pow 2).const_mul (1/2 * S.m)
+  have hPE := ((hdx t).hasFDerivAt.pow 2).const_mul (1/2 * S.k)
+
+  rw [(hKE.add hPE).fderiv]
 
   norm_num
   rw [← Time.deriv, ← Time.deriv]
