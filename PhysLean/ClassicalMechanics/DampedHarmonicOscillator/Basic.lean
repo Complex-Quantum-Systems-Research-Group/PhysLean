@@ -217,8 +217,8 @@ lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
   have hddx : Differentiable ℝ (∂ₜ x) := deriv_differentiable_of_contDiff x hx
 
   -- Break equation apart
-  simp only [energy, kineticEnergy, potentialEnergy, Pi.add_def]
-  rw [← Pi.add_def]
+  rw [energy]
+  unfold kineticEnergy potentialEnergy
 
   have hke : DifferentiableAt ℝ (fun i => (1/2 : ℝ) * S.m * ∂ₜ x i ^ 2) t :=
     ((hddx t).pow 2).const_mul _
