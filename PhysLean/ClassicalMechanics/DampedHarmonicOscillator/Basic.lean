@@ -61,8 +61,6 @@ References for the damped harmonic oscillator include:
 
 namespace ClassicalMechanics
 open Real
-open Space
-open InnerProductSpace
 open ContDiff
 open Time
 
