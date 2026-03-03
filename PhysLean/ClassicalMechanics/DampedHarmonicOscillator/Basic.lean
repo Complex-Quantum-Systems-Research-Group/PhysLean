@@ -66,11 +66,6 @@ open InnerProductSpace
 open ContDiff
 open Time
 
-TODO "DHO01" "Define the DampedHarmonicOscillator structure with mass m, spring constant k,
-  and damping coefficient γ."
-
-TODO "DHO04" "Prove that energy is not conserved and derive the energy dissipation rate."
-
 TODO "DHO05" "Derive solutions for the underdamped case (oscillatory with exponential decay)."
 
 TODO "DHO06" "Derive solutions for the critically damped case (fastest non-oscillatory return)."
