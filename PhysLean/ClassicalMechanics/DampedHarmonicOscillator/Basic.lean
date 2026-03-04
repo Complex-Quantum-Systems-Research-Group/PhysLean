@@ -207,7 +207,6 @@ so the energy is non-increasing and not conserved when `S.γ > 0`. -/
 noncomputable def energyDissipationRate (x : Time → ℝ) : Time → ℝ :=
   fun t => - S.γ * (Time.deriv x t)^2
 
-
 /-- Derives the energy dissipation rate from the equation of motion -/
 lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
     (hx : ContDiff ℝ ∞ x) :
