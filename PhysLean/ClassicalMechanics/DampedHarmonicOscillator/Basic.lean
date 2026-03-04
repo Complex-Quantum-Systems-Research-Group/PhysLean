@@ -234,7 +234,7 @@ lemma energy_dissipation_rate (x: Time → ℝ) (h1 : S.EquationOfMotion x)
 lemma energy_not_conserved (x: Time → ℝ) (h1 : S.EquationOfMotion x)
     (hx : ContDiff ℝ ∞ x)
     (hdx : Time.deriv x t ≠ 0)
-    (hγ : S.γ > 0) :
+    (hγ : 0 < S.γ) :
     Time.deriv (energy S x) t < 0 := by
 
   rw [energy_dissipation_rate S x h1 hx]
