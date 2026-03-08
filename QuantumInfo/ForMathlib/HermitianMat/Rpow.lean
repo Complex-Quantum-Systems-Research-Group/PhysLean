@@ -5,6 +5,9 @@ Authors: Alex Meiburg
 -/
 import QuantumInfo.ForMathlib.HermitianMat.LogExp
 import QuantumInfo.ForMathlib.HermitianMat.Sqrt
+import Mathlib.Analysis.SpecialFunctions.Integrability.Basic
+import Mathlib.Analysis.SpecialFunctions.ImproperIntegrals
+import Mathlib.MeasureTheory.Integral.IntegralEqImproper
 
 variable {d d₂ 𝕜 : Type*} [Fintype d] [DecidableEq d] [Fintype d₂] [DecidableEq d₂]
 variable [RCLike 𝕜]
@@ -388,7 +391,22 @@ open MeasureTheory in
 /-- The integrand `u ^ (q-1) / (1+u)` is integrable on `(0, ∞)` for `0 < q < 1`. -/
 lemma rpowConst_integrableOn (hq : 0 < q) (hq1 : q < 1) :
     IntegrableOn (fun u : ℝ => u ^ (q - 1) / (1 + u)) (Set.Ioi 0) := by
-  sorry
+  have h_split : (MeasureTheory.IntegrableOn (fun u : ℝ => u ^ (q - 1) / (1 + u)) (Set.Ioc 0 1)) ∧ (MeasureTheory.IntegrableOn (fun u : ℝ => u ^ (q - 1) / (1 + u)) (Set.Ioi 1)) := by
+    constructor;
+    · have h_integrable_0_1 : MeasureTheory.IntegrableOn (fun u : ℝ => u ^ (q - 1)) (Set.Ioc 0 1) := by
+        exact ( intervalIntegral.intervalIntegrable_rpow' ( by linarith ) ).1;
+      refine' h_integrable_0_1.mono' _ _;
+      · exact Measurable.aestronglyMeasurable ( by exact Measurable.mul ( measurable_id.pow_const _ ) ( measurable_const.add measurable_id |> Measurable.inv ) );
+      · filter_upwards [ MeasureTheory.ae_restrict_mem measurableSet_Ioc ] with x hx using by rw [ Real.norm_of_nonneg ( div_nonneg ( Real.rpow_nonneg hx.1.le _ ) ( by linarith [ hx.1 ] ) ) ] ; exact div_le_self ( Real.rpow_nonneg hx.1.le _ ) ( by linarith [ hx.1 ] ) ;
+    · have h_bound : ∀ u : ℝ, 1 ≤ u → u ^ (q - 1) / (1 + u) ≤ u ^ (q - 2) := by
+        intro u hu; rw [ div_le_iff₀ ( by positivity ) ] ; ring_nf; (
+        exact le_add_of_nonneg_of_le ( by positivity ) ( by rw [ ← Real.rpow_add_one ( by positivity ) ] ; ring_nf; norm_num ));
+      have h_integrable : MeasureTheory.IntegrableOn (fun u : ℝ => u ^ (q - 2)) (Set.Ioi 1) := by
+        rw [ integrableOn_Ioi_rpow_iff ] <;> norm_num ; linarith;
+      refine' h_integrable.mono' _ _;
+      · exact Measurable.aestronglyMeasurable ( by exact Measurable.mul ( measurable_id.pow_const _ ) ( measurable_const.add measurable_id |> Measurable.inv ) );
+      · filter_upwards [ MeasureTheory.ae_restrict_mem measurableSet_Ioi ] with u hu using by rw [ Real.norm_of_nonneg ( div_nonneg ( Real.rpow_nonneg ( by linarith [ hu.out ] ) _ ) ( by linarith [ hu.out ] ) ) ] ; exact h_bound u hu.out.le;
+  convert h_split.1.union h_split.2 using 1 ; norm_num [ Set.Ioc_union_Ioi_eq_Ioi ]
 
 /- The resolvent constant is positive. -/
 lemma rpowConst_pos (hq : 0 < q) (hq1 : q < 1) : 0 < rpowConst q := by
@@ -410,20 +428,92 @@ open MeasureTheory in
 lemma integral_rpow_substitution {x : ℝ} (hx : 0 < x) (hq : 0 < q) (hq1 : q < 1) :
     ∫ t in Set.Ioi (0 : ℝ), (t ^ (q - 1) * (x / (x + t)) : ℝ) =
     x ^ q * rpowConst q := by
-  sorry
+  have h_subst : ∫ t in Set.Ioi 0, t ^ (q - 1) * (x / (x + t)) = ∫ u in Set.Ioi 0, (x * u) ^ (q - 1) * (x / (x + x * u)) * x := by
+    have h_subst : ∀ {f : ℝ → ℝ}, ∫ t in Set.Ioi 0, f t = ∫ u in Set.Ioi 0, f (x * u) * x := by
+      intro f; rw [ MeasureTheory.integral_mul_const ] ; rw [ MeasureTheory.integral_comp_mul_left_Ioi ] ; norm_num [ hx.ne' ] ;
+      · rw [ inv_mul_eq_div, div_mul_cancel₀ _ hx.ne' ];
+      · exact?;
+    exact h_subst;
+  convert h_subst using 1;
+  unfold rpowConst;
+  rw [ ← MeasureTheory.integral_const_mul ] ; refine' MeasureTheory.setIntegral_congr_fun measurableSet_Ioi fun u hu => _ ; rw [ Real.mul_rpow ( by positivity ) ( by linarith [ hu.out ] ) ] ; ring;
+  rw [ show q = -1 + q + 1 by ring, Real.rpow_add hx, Real.rpow_one ] ; ring;
+  grind
 
 open MeasureTheory Filter in
 /-- The scalar rpow approximation converges pointwise.
     `scalarRpowApprox q T x → rpowConst q * (x^q - 1)` as `T → ∞`. -/
 lemma scalarRpowApprox_tendsto {x : ℝ} (hx : 0 < x) (hq : 0 < q) (hq1 : q < 1) :
     Filter.Tendsto (fun T => scalarRpowApprox q T x) atTop (nhds (rpowConst q * (x ^ q - 1))) := by
-  sorry
+  have h_def : ∀ T > 0, scalarRpowApprox q T x = x * (∫ t in (0)..T, t ^ (q - 1) / (x + t)) - (∫ t in (0)..T, t ^ (q - 1) / (1 + t)) := by
+    intro T hT
+    have : ∀ t ∈ Set.Ioc (0 : ℝ) T, t ^ q * (1 / (1 + t) - 1 / (x + t)) = x * (t ^ (q - 1) / (x + t)) - (t ^ (q - 1) / (1 + t)) := by
+      intro t ht; rw [ Real.rpow_sub_one ht.1.ne' ] ; ring;
+      grind;
+    rw [ intervalIntegral.integral_of_le hT.le, intervalIntegral.integral_of_le hT.le ];
+    rw [ ← MeasureTheory.integral_const_mul, ← MeasureTheory.integral_sub ];
+    · exact Eq.trans ( intervalIntegral.integral_of_le hT.le ) ( MeasureTheory.setIntegral_congr_fun measurableSet_Ioc this );
+    · refine' MeasureTheory.Integrable.const_mul _ _;
+      refine' MeasureTheory.Integrable.mono' _ _ _;
+      refine' fun t => t ^ ( q - 1 ) / x;
+      · exact ( intervalIntegral.intervalIntegrable_rpow' ( by linarith ) ).1.div_const _;
+      · exact Measurable.aestronglyMeasurable ( by exact Measurable.mul ( measurable_id.pow_const _ ) ( measurable_const.add measurable_id |> Measurable.inv ) );
+      · filter_upwards [ MeasureTheory.ae_restrict_mem measurableSet_Ioc ] with t ht using by rw [ Real.norm_of_nonneg ( div_nonneg ( Real.rpow_nonneg ht.1.le _ ) ( by linarith [ ht.1 ] ) ) ] ; exact div_le_div_of_nonneg_left ( Real.rpow_nonneg ht.1.le _ ) ( by linarith [ ht.1 ] ) ( by linarith [ ht.1 ] ) ;
+    · refine' MeasureTheory.Integrable.mono' _ _ _;
+      refine' fun t => t ^ ( q - 1 ) / ( 1 + 0 );
+      · exact ( intervalIntegral.intervalIntegrable_rpow' ( by linarith ) ).1.div_const _;
+      · exact Measurable.aestronglyMeasurable ( by exact Measurable.mul ( measurable_id.pow_const _ ) ( measurable_const.add measurable_id |> Measurable.inv ) );
+      · filter_upwards [ MeasureTheory.ae_restrict_mem measurableSet_Ioc ] with t ht using by rw [ Real.norm_of_nonneg ( div_nonneg ( Real.rpow_nonneg ( by linarith [ ht.1 ] ) _ ) ( by linarith [ ht.1 ] ) ) ] ; exact div_le_div_of_nonneg_left ( Real.rpow_nonneg ( by linarith [ ht.1 ] ) _ ) ( by linarith [ ht.1 ] ) ( by linarith [ ht.1 ] ) ;
+  have h_int_x : Filter.Tendsto (fun T => ∫ t in (0)..T, t ^ (q - 1) / (x + t)) Filter.atTop (nhds (rpowConst q * x ^ (q - 1))) := by
+    have h_subst : ∀ T > 0, ∫ t in (0)..T, t ^ (q - 1) / (x + t) = x ^ (q - 1) * ∫ u in (0)..T / x, u ^ (q - 1) / (1 + u) := by
+      intro T hT
+      have h_subst : ∫ t in (0)..T, t ^ (q - 1) / (x + t) = ∫ u in (0)..T / x, (x * u) ^ (q - 1) / (x + x * u) * x := by
+        simp +decide [ mul_comm x, intervalIntegral.integral_comp_mul_right ( fun u => u ^ ( q - 1 ) / ( x + u ) ), hx.ne' ];
+        rw [ inv_mul_eq_div, div_mul_cancel₀ _ hx.ne' ];
+      rw [ h_subst, ← intervalIntegral.integral_const_mul ];
+      refine' intervalIntegral.integral_congr fun u hu => _;
+      rw [ Real.mul_rpow ( by positivity ) ( by cases Set.mem_uIcc.mp hu <;> nlinarith [ div_mul_cancel₀ T hx.ne' ] ) ] ; ring;
+      field_simp;
+    have h_int_conv : Filter.Tendsto (fun T => ∫ u in (0)..T, u ^ (q - 1) / (1 + u)) Filter.atTop (nhds (rpowConst q)) := by
+      apply_rules [ MeasureTheory.intervalIntegral_tendsto_integral_Ioi ];
+      · have := rpowConst_integrableOn hq hq1; aesop;
+      · exact Filter.tendsto_id;
+    rw [ Filter.tendsto_congr' ( by filter_upwards [ Filter.eventually_gt_atTop 0 ] with T hT using h_subst T hT ) ] ; simpa [ mul_comm ] using h_int_conv.comp ( Filter.tendsto_id.atTop_div_const hx ) |> Filter.Tendsto.const_mul ( x ^ ( q - 1 ) ) ;
+  have h_int_1 : Filter.Tendsto (fun T => ∫ t in (0)..T, t ^ (q - 1) / (1 + t)) Filter.atTop (nhds (rpowConst q)) := by
+    apply_rules [ MeasureTheory.intervalIntegral_tendsto_integral_Ioi ];
+    · exact rpowConst_integrableOn hq hq1;
+    · exact Filter.tendsto_id;
+  rw [ Filter.tendsto_congr' ( by filter_upwards [ Filter.eventually_gt_atTop 0 ] with T hT using h_def T hT ) ] ; convert Filter.Tendsto.sub ( h_int_x.const_mul x ) h_int_1 using 2 ; ring;
+  rw [ mul_assoc, ← Real.rpow_one_add' hx.le ] <;> norm_num ; linarith
 
 open MeasureTheory ComplexOrder Filter in
 /-- The matrix rpow approximation converges: `rpowApprox A q T → rpowConst q • (A^q - 1)`. -/
 lemma tendsto_rpowApprox (hA : A.mat.PosDef) (hq : 0 < q) (hq1 : q < 1) :
     Tendsto (rpowApprox A q) atTop (nhds (rpowConst q • (A ^ q - 1))) := by
-  sorry
+  have h_target : rpowConst q • (A ^ q - 1) = A.cfc (fun x => rpowConst q * (x ^ q - 1)) := by
+    have h2 : A.cfc (fun x => rpowConst q * (x ^ q - 1)) = rpowConst q • A.cfc (fun x => x ^ q - 1) :=
+      HermitianMat.cfc_const_mul A (fun x => x ^ q - 1) (rpowConst q)
+    have h3 : A.cfc (fun x => x ^ q - 1) = A.cfc (· ^ q) - 1 := by
+      conv_rhs => rw [show (1 : HermitianMat d ℂ) = A.cfc (fun _ => (1 : ℝ)) by simp]
+      exact cfc_sub_apply A (f := (· ^ q)) (g := fun _ => 1)
+    rw [h2, h3, rpow_eq_cfc]
+  have h_eq : ∀ᶠ T in atTop, rpowApprox A q T = A.cfc (scalarRpowApprox q T) := by
+    filter_upwards [Filter.eventually_gt_atTop 0] with T hT
+    exact rpowApprox_eq_cfc_scalar A hA q T hq.le hT
+  rw [Filter.tendsto_congr' h_eq, h_target]
+  have h_expand_src : ∀ T, (A.cfc (scalarRpowApprox q T)).mat = ∑ i, scalarRpowApprox q T (A.H.eigenvalues i) • (A.H.eigenvectorUnitary.val * (Matrix.single i i 1) * A.H.eigenvectorUnitary.val.conjTranspose) :=
+    fun T => cfc_toMat_eq_sum_smul_proj A (scalarRpowApprox q T)
+  have h_expand_tgt : (A.cfc (fun x => rpowConst q * (x ^ q - 1))).mat = ∑ i, (rpowConst q * (A.H.eigenvalues i ^ q - 1)) • (A.H.eigenvectorUnitary.val * (Matrix.single i i 1) * A.H.eigenvectorUnitary.val.conjTranspose) :=
+    cfc_toMat_eq_sum_smul_proj A (fun x => rpowConst q * (x ^ q - 1))
+  have h_sum : Tendsto (fun T : ℝ => ∑ i, scalarRpowApprox q T (A.H.eigenvalues i) • (A.H.eigenvectorUnitary.val * (Matrix.single i i 1) * A.H.eigenvectorUnitary.val.conjTranspose)) atTop (nhds (∑ i, (rpowConst q * (A.H.eigenvalues i ^ q - 1)) • (A.H.eigenvectorUnitary.val * (Matrix.single i i 1) * A.H.eigenvectorUnitary.val.conjTranspose))) := by
+    refine tendsto_finset_sum _ fun i _ => ?_
+    have := scalarRpowApprox_tendsto (hA.eigenvalues_pos i) hq hq1
+    exact Filter.Tendsto.smul_const (Complex.continuous_ofReal.continuousAt.tendsto.comp this) _
+  open scoped Matrix.Norms.Frobenius in
+  rw [tendsto_iff_norm_sub_tendsto_zero] at *
+  convert h_sum using 2 with T
+  show ‖(A.cfc (scalarRpowApprox q T)).mat - (A.cfc (fun x => rpowConst q * (x ^ q - 1))).mat‖ = _
+  rw [h_expand_src, h_expand_tgt]
 
 open MeasureTheory ComplexOrder Filter in
 theorem rpow_le_rpow_of_posDef (hA : A.mat.PosDef) (hAB : A ≤ B)
