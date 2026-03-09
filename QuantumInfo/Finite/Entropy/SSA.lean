@@ -110,7 +110,26 @@ lemma V_rho_conj_mul_self_eq (ρAB : HermitianMat (dA × dB) ℂ) (hρ : ρAB.ma
     let ρA := ρAB.traceRight
     let ρA_inv_sqrt := (ρA⁻¹.sqrt : Matrix dA dA ℂ)
     (V_rho ρAB)ᴴ * (V_rho ρAB) = ρA_inv_sqrt * ρAB.traceRight.mat * ρA_inv_sqrt := by
-  sorry
+  -- By definition of $V_rho$, we can write out the product $V_rho^H * V_rho$.
+  simp [V_rho];
+  simp [ ← Matrix.mul_assoc, map_to_tensor_MES_prop ];
+  have h_simp : (Matrix.kroneckerMap (fun x1 x2 => x1 * x2) (ρAB.sqrt : Matrix (dA × dB) (dA × dB) ℂ) (1 : Matrix dB dB ℂ))ᴴ * (Matrix.kroneckerMap (fun x1 x2 => x1 * x2) (ρAB.sqrt : Matrix (dA × dB) (dA × dB) ℂ) (1 : Matrix dB dB ℂ)) = Matrix.kroneckerMap (fun x1 x2 => x1 * x2) (ρAB : Matrix (dA × dB) (dA × dB) ℂ) (1 : Matrix dB dB ℂ) := by
+    have h_simp : (ρAB.sqrt : Matrix (dA × dB) (dA × dB) ℂ)ᴴ * (ρAB.sqrt : Matrix (dA × dB) (dA × dB) ℂ) = ρAB := by
+      convert ρAB.sqrt_sq ( show 0 ≤ ρAB from ?_ ) using 1;
+      · simp [ HermitianMat.sqrt, Matrix.IsHermitian ];
+      · have := hρ.2;
+        constructor;
+        · simp [ Matrix.IsHermitian, ρAB.2 ];
+        · intro x; by_cases hx : x = 0 <;> simp_all [ Matrix.sub_mulVec ] ;
+          exact le_of_lt ( this x hx );
+    ext ⟨ i, j ⟩ ⟨ k, l ⟩ ; simp [ ← h_simp, Matrix.mul_apply ] ; ring;
+    by_cases hij : j = l <;> simp [ hij, Matrix.one_apply ];
+    · simp [ ← Finset.sum_filter, Finset.sum_product, hij ];
+      refine' Finset.sum_bij ( fun x _ => x.1 ) _ _ _ _ <;> simp [ hij ];
+      intro a b; exact Or.inl ( by simpa using congr_fun ( congr_fun ( ρAB.sqrt.2 ) i ) ( a, b ) ) ;
+    · exact Finset.sum_eq_zero fun x hx => by aesop;
+  simp_all [ mul_assoc, Matrix.mul_assoc ];
+  simp [ ← Matrix.mul_assoc, ← map_to_tensor_MES_prop ]
 
 /--
 The partial trace (left) of a positive definite matrix is positive definite.
@@ -170,7 +189,7 @@ theorem V_rho_isometry [Nonempty dB] (ρAB : HermitianMat (dA × dB) ℂ) (hρ :
     convert HermitianMat.sqrt_inv_mul_self_mul_sqrt_inv_eq_one _;
     exact PosDef_traceRight _ hρ
   rw [← h_pos_def]
-  sorry
+  exact V_rho_conj_mul_self_eq ρAB hρ
 
 /--
 V_sigma is an isometry.
@@ -265,6 +284,52 @@ theorem Matrix.opNorm_conjTranspose_eq_opNorm {m n : Type*} [Fintype m] [Fintype
   rw [← ContinuousLinearMap.adjoint.norm_map (toEuclideanLin A).toContinuousLinearMap]
   rw [toEuclideanLin_conjTranspose_eq_adjoint]
   rfl
+
+theorem isometry_mul_conjTranspose_le_one {m n : Type*} [Fintype m] [Fintype n]
+    [DecidableEq m] [DecidableEq n]
+    (V : Matrix m n ℂ) (hV : V.conjTranspose * V = 1) :
+    V * V.conjTranspose ≤ 1 := by
+  have h_pos : (1 - V * Vᴴ) * (1 - V * Vᴴ) = 1 - V * Vᴴ := by
+    simp [ sub_mul, mul_sub, ← Matrix.mul_assoc, hV ];
+    simp [ Matrix.mul_assoc, hV ];
+  have h_pos : (1 - V * Vᴴ) = (1 - V * Vᴴ)ᴴ * (1 - V * Vᴴ) := by
+    simp_all [ Matrix.conjTranspose_sub, Matrix.conjTranspose_one, Matrix.conjTranspose_mul ];
+  have h_pos : Matrix.PosSemidef (1 - V * Vᴴ) := by
+    rw [ h_pos ] at *; apply Matrix.posSemidef_conjTranspose_mul_self;
+  grind
+
+/-
+If `A†A = I` and `B†B = I` (both isometries into the same space), then `||(A†B)|| ≤ 1`,
+  equivalently `(A†B)†(A†B) ≤ I`.
+-/
+theorem conjTranspose_isometry_mul_isometry_le_one {m n k : Type*}
+    [Fintype m] [Fintype n] [Fintype k] [DecidableEq m] [DecidableEq n] [DecidableEq k]
+    (A : Matrix k m ℂ) (B : Matrix k n ℂ)
+    (hA : A.conjTranspose * A = 1) (hB : B.conjTranspose * B = 1) :
+    (A.conjTranspose * B).conjTranspose * (A.conjTranspose * B) ≤ 1 := by
+  have h_le : (Bᴴ * A) * (Bᴴ * A)ᴴ ≤ 1 := by
+    have h_le : (Bᴴ * A) * (Bᴴ * A)ᴴ ≤ (Bᴴ * B) := by
+      have h_le : (A * Aᴴ) ≤ 1 := by
+        apply isometry_mul_conjTranspose_le_one A hA;
+      -- Apply the fact that if $X \leq Y$, then $CXC^* \leq CYC^*$ for any matrix $C$.
+      have h_conj : ∀ (C : Matrix n k ℂ) (X Y : Matrix k k ℂ), X ≤ Y → C * X * Cᴴ ≤ C * Y * Cᴴ :=
+        fun C X Y a => Matrix.PosSemidef.mul_mul_conjTranspose_mono C a
+      simpa [ Matrix.mul_assoc ] using h_conj Bᴴ ( A * Aᴴ ) 1 h_le;
+    aesop;
+  simpa [ Matrix.mul_assoc ] using h_le
+
+open HermitianMat in
+/-- **Operator extension of SSA** (Main result of Lin-Kim-Hsieh).
+  For positive definite ρ_AB and σ_BC:
+  `ρ_A⁻¹ ⊗ σ_BC ≤ ρ_AB⁻¹ ⊗ σ_C`
+  where ρ_A = Tr_B(ρ_AB) and σ_C = Tr_B(σ_BC), and the RHS is reindexed
+  via the associator `(dA × dB) × dC ≃ dA × (dB × dC)`. -/
+theorem operator_ineq_SSA [Nonempty dA] [Nonempty dB] [Nonempty dC]
+    (ρAB : HermitianMat (dA × dB) ℂ) (σBC : HermitianMat (dB × dC) ℂ)
+    (hρ : ρAB.mat.PosDef) (hσ : σBC.mat.PosDef) :
+    ρAB.traceRight⁻¹ ⊗ₖ σBC ≤
+      (ρAB⁻¹ ⊗ₖ σBC.traceLeft).reindex (Equiv.prodAssoc dA dB dC) := by
+  sorry
 
 open scoped InnerProductSpace RealInnerProductSpace
 
