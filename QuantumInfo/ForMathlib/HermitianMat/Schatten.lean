@@ -38,16 +38,14 @@ theorem schattenNorm_hermitian_pow {A : HermitianMat d ℂ} (hA : 0 ≤ A) {p : 
   rw [sq]
   exact Matrix.IsHermitian.cfc_eq _ _
 
-theorem schattenNorm_nonneg (A : Matrix d d ℂ) (p : ℝ) : 0 ≤ schattenNorm A p := by
-  refine Real.rpow_nonneg ?_ (1 / p)
-  rw [ Matrix.trace ] at *
-  simp_all [ Matrix.IsHermitian.cfc ] ;
-  simp [ Matrix.mul_apply, Matrix.diagonal ] at *;
-  refine Finset.sum_nonneg fun i _ => Finset.sum_nonneg fun j _ => ?_
-  ring_nf
-  exact add_nonneg ( mul_nonneg (by positivity) ( Real.rpow_nonneg ( by
-    exact Matrix.eigenvalues_conjTranspose_mul_self_nonneg A j ) _ ) ) ( mul_nonneg ( Real.rpow_nonneg ( by
-    exact Matrix.eigenvalues_conjTranspose_mul_self_nonneg A j ) _ ) (by positivity) )
+lemma schattenNorm_nonneg (A : Matrix d d ℂ) (p : ℝ) :
+    0 ≤ schattenNorm A p := by
+  apply Real.rpow_nonneg
+  rw [ Matrix.IsHermitian.cfc ];
+  rw [ Matrix.trace_mul_comm ];
+  simp [ ← mul_assoc, Matrix.trace ];
+  refine Finset.sum_nonneg fun i _ ↦ Real.rpow_nonneg ?_ _
+  exact A.eigenvalues_conjTranspose_mul_self_nonneg i
 
 lemma schattenNorm_pow_eq
   (A : HermitianMat d ℂ) (hA : 0 ≤ A) (p k : ℝ) (hp : 0 < p) (hk : 0 < k) :
@@ -163,22 +161,6 @@ lemma schattenNorm_rpow_eq_sum_sorted (A : Matrix d d ℂ) {p : ℝ} (hp : 0 < p
     ∑ i : Fin (Fintype.card d), singularValuesSorted A i ^ p := by
   rw [schattenNorm_rpow_eq_sum_singularValues A hp]
   exact sum_singularValues_rpow_eq_sum_sorted A p
-
-/-
-PROBLEM
-The Schatten norm is nonneg.
-
-PROVIDED SOLUTION
-The schattenNorm is defined as re(trace(cfc(A†A, t ↦ t^{p/2})))^{1/p}. The eigenvalues of A†A are nonneg, so the trace of cfc(A†A, t ↦ t^{p/2}) is a sum of nonneg reals, hence nonneg. So schattenNorm = (nonneg)^{1/p} ≥ 0. Use Real.rpow_nonneg.
--/
-lemma schattenNorm_nonneg (A : Matrix d d ℂ) (p : ℝ) :
-    0 ≤ schattenNorm A p := by
-  refine' Real.rpow_nonneg _ _;
-  rw [ Matrix.IsHermitian.cfc ];
-  rw [ Matrix.trace_mul_comm ];
-  simp [ ← mul_assoc, Matrix.trace ];
-  refine' Finset.sum_nonneg fun i _ => Real.rpow_nonneg _ _;
-  exact Matrix.eigenvalues_conjTranspose_mul_self_nonneg A i
 
 open InnerProductSpace in
 /--
