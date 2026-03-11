@@ -671,7 +671,7 @@ noncomputable def modelDiffeo {d} :
 
 @[simp]
 lemma modelDiffeo_apply (p : Space d) :
-    modelDiffeo p = p := rfl
+      modelDiffeo p = p := rfl
 
 open Manifold in
 /-- The derivative of `modelDiffeo` provides an equivalence between
@@ -688,8 +688,7 @@ lemma basis_eq_mfderiv_modelDiffeo_single (d : ℕ) (μ : Fin d) (x : Space d) :
   ext i
   rw [fderiv_space_components _ _ (by fun_prop)]
   simp only [vadd_apply, fderiv_add_const]
-  change _ = (fderiv ℝ (EuclideanSpace.proj i) (x -ᵥ Classical.choice _))
-    (EuclideanSpace.single μ 1)
+  change _ = fderiv ℝ (EuclideanSpace.proj i) (x -ᵥ Classical.choice _) (EuclideanSpace.single μ 1)
   simp [basis_apply]
   congr 1
   exact Eq.propIntro (fun a => Eq.symm a) fun a => (Eq.symm a)
