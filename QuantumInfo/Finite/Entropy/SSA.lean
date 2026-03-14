@@ -386,10 +386,7 @@ private lemma W_mat_sq_eq_conj [Nonempty dA] [Nonempty dB] [Nonempty dC]
   simp [ Matrix.mul_assoc, Matrix.conjTranspose_mul, Matrix.conjTranspose_kronecker ];
   have h_simp : (ρAB.sqrt : Matrix (dA × dB) (dA × dB) ℂ) * (ρAB.sqrt : Matrix (dA × dB) (dA × dB) ℂ) = ρAB ∧ (σBC.traceLeft⁻¹.sqrt : Matrix dC dC ℂ) * (σBC.traceLeft⁻¹.sqrt : Matrix dC dC ℂ) = σBC.traceLeft⁻¹ := by
     constructor;
-    · convert sqrt_sq ( show 0 ≤ ρAB from ?_ ) using 1
-      generalize_proofs at *;
-      convert hρ.posSemidef using 1
-      exact zero_le_iff;
+    · exact sqrt_sq (by positivity)
     · convert sqrt_sq ( show 0 ≤ ( σBC.traceLeft⁻¹ : HermitianMat dC ℂ ) from ?_ ) using 1;
       have h_inv_pos : (σBC.traceLeft⁻¹ : HermitianMat dC ℂ).mat.PosDef := by
         have h_inv_pos : (σBC.traceLeft : Matrix dC dC ℂ).PosDef := by
@@ -456,7 +453,7 @@ private lemma S_mat_conj_rhs_eq_one [Nonempty dA] [Nonempty dB] [Nonempty dC]
 /- Key factorization: W_mat = (F ⊗ I_C) * (I_A ⊗ G).reindex, where
   F = ρAB.sqrt * (ρA⁻¹.sqrt ⊗ I_B) and G = (I_B ⊗ σC⁻¹.sqrt) * σBC.sqrt.
   This expresses W as a "contraction over the shared B index". -/
-private lemma W_mat_eq_factored [Nonempty dA] [Nonempty dB] [Nonempty dC]
+private lemma W_mat_eq_factored
     (ρAB : HermitianMat (dA × dB) ℂ) (σBC : HermitianMat (dB × dC) ℂ) :
     W_mat ρAB σBC =
       let F := ρAB.sqrt.mat * (ρAB.traceRight⁻¹.sqrt.mat ⊗ₖ (1 : Matrix dB dB ℂ))
@@ -526,13 +523,18 @@ private lemma T₁_isometry [Nonempty dB]
       (V_rho ρAB ⊗ₖ (1 : Matrix (dB × dC) (dB × dC) ℂ)) = 1 := by
     have hV := V_rho_isometry ρAB hρ
     convert congr_arg (fun m => Matrix.kroneckerMap (· * ·) m (1 : Matrix (dB × dC) (dB × dC) ℂ)) hV using 1
-    · ext i j; simp +decide [Matrix.mul_apply, Matrix.kroneckerMap, Matrix.one_apply, Finset.sum_mul]
-      by_cases hij : i.2 = j.2 <;> simp +decide [hij, Finset.sum_ite]
-      · exact Finset.sum_bij (fun x _ => x.1) (by aesop) (by aesop) (by aesop) (by aesop)
+    · ext i j
+      simp [Matrix.mul_apply, Matrix.kroneckerMap, Matrix.one_apply]
+      by_cases hij : i.2 = j.2 <;> simp [hij, Finset.sum_ite]
+      · exact Finset.sum_bij (fun x _ ↦ x.1) (by aesop) (by aesop) (by aesop) (by aesop)
       · exact Finset.sum_eq_zero (by aesop)
-    · ext i j; simp +decide [Matrix.one_apply]; aesop
+    · ext i j
+      simp [Matrix.one_apply]
+      aesop
   convert congr_arg (Matrix.reindex (Equiv.prodAssoc dA dB dC).symm (Equiv.prodAssoc dA dB dC).symm) h_kron using 1
-  ext i j; simp +decide [Matrix.one_apply]; aesop
+  ext i j
+  simp [Matrix.one_apply]
+  aesop
 
 set_option maxHeartbeats 400000 in
 private lemma T₂_sq_le_one [Nonempty dB]
@@ -541,14 +543,27 @@ private lemma T₂_sq_le_one [Nonempty dB]
   have hT₂_isometry : (V_sigma σBC).conjTranspose * (V_sigma σBC) = 1 :=
     V_sigma_isometry σBC hσ
   convert isometry_mul_conjTranspose_le_one (Matrix.kronecker (1 : Matrix (dA × dB) (dA × dB) ℂ) (V_sigma σBC)) _ using 1
-  · ext ⟨ i, j ⟩ ⟨ k, l ⟩ ; simp +decide [ Matrix.mul_apply, Matrix.kronecker_apply ] ; ring
-    unfold T₂_mat; simp +decide [ Matrix.one_apply, Matrix.kronecker_apply ] ; ring
-    refine' Finset.sum_congr rfl fun x hx => _ ; aesop
-  · convert congr_arg (fun x => Matrix.kronecker (1 : Matrix (dA × dB) (dA × dB) ℂ) x) hT₂_isometry using 1
-    · ext ⟨ i, j ⟩ ⟨ k, l ⟩ ; simp +decide [ Matrix.mul_apply, Matrix.kronecker_apply ] ; ring
-      simp +decide [ Matrix.one_apply, mul_assoc, mul_comm, mul_left_comm, Finset.mul_sum _ _ _ ]
-      split_ifs <;> simp_all +decide [ Finset.sum_ite ]
-      refine' Finset.sum_bij ( fun x _ => x.2 ) _ _ _ _ <;> aesop
+  · ext ⟨i, j⟩ ⟨k, l⟩
+    simp [Matrix.mul_apply]
+    ring_nf
+    unfold T₂_mat
+    simp [Matrix.one_apply]
+    ring_nf
+    congr! 2
+    · exact eq_comm
+    · aesop
+  · convert congr_arg (Matrix.kronecker (1 : Matrix (dA × dB) (dA × dB) ℂ)) hT₂_isometry using 1
+    · ext ⟨ i, j ⟩ ⟨ k, l ⟩
+      simp [ Matrix.mul_apply]
+      ring_nf
+      simp [ Matrix.one_apply, mul_comm, mul_left_comm, Finset.mul_sum _ _ _ ]
+      split_ifs <;> simp_all [ Finset.sum_ite ]
+      subst i
+      refine' Finset.sum_bij ( fun x _ => x.2 ) _ _ _ _
+      · aesop
+      · aesop
+      · aesop
+      · aesop
     · aesop
 
 private lemma PERM_isometry : (PERM_mat dA dB dC)ᴴ * PERM_mat dA dB dC = 1 := by
@@ -562,6 +577,11 @@ private lemma W_mat_entry (ρAB : HermitianMat (dA × dB) ℂ) (σBC : Hermitian
       ∑ b_star : dB,
         V_rho ρAB ((i.1, b_star)) j.1.1 *
         (V_sigma σBC)ᴴ i.2 (b_star, (j.1.2, j.2)) := by
+  obtain ⟨⟨a, b⟩, c⟩ := i
+  obtain ⟨⟨a', b'⟩, c'⟩ := j
+  rw [W_mat_eq_factored]
+  simp [Matrix.mul_apply, Fintype.sum_prod_type, Matrix.one_apply,
+    V_rho, V_sigma, map_to_tensor_MES]
   sorry
 
 /-- Element-wise identity: RHS = ∑_{b*} V_rho * V_sigma†. -/
@@ -571,7 +591,38 @@ private lemma RHS_entry (ρAB : HermitianMat (dA × dB) ℂ) (σBC : HermitianMa
       ∑ b_star : dB,
         V_rho ρAB ((i.1, b_star)) j.1.1 *
         (V_sigma σBC)ᴴ i.2 (b_star, (j.1.2, j.2)) := by
-  sorry
+  obtain ⟨⟨a, b⟩, c⟩ := i
+  obtain ⟨⟨a', b'⟩, c'⟩ := j
+  simp only [Matrix.mul_apply, T₂_mat, T₁_mat, PERM_mat, assoc_equiv,
+    Matrix.kroneckerMap_apply, Matrix.one_apply, Matrix.reindex_apply,
+    Equiv.prodAssoc_symm_apply, Equiv.refl_symm, Equiv.refl_apply,
+    Equiv.prodAssoc_apply, Matrix.conjTranspose_apply,
+    Matrix.submatrix_apply, Equiv.symm_symm]
+  simp only [ite_mul, one_mul, zero_mul]
+  simp only [mul_ite, mul_one, mul_zero]
+  have h_inner : ∀ (x : BigIdx dA dB dC),
+    (∑ x_1 : MidIdx dA dB dC,
+      if (a, b) = x_1.1
+      then if ((x_1.1, x_1.2.1), x_1.2.2) = x then star (V_sigma σBC x_1.2 c) else 0
+      else 0) =
+    if x.1.1 = (a, b) then star (V_sigma σBC (x.1.2, x.2) c) else 0 := by
+    intro ⟨⟨p, q⟩, r⟩
+    rw [Finset.sum_eq_single ⟨(a, b), (q, r)⟩]
+    · simp [eq_comm]
+    · intro ⟨s, ⟨t, u⟩⟩ _ hne; split_ifs with h1 h2 <;> try rfl
+      exfalso; apply hne; ext <;> grind only
+    · intro h; exact absurd (Finset.mem_univ _) h
+  simp_rw [h_inner, ite_mul, zero_mul]
+  rw [show Finset.univ (α := BigIdx dA dB dC) = (Finset.univ ×ˢ Finset.univ : Finset (((dA × dB) × dB) × (dB × dC)))
+    from Finset.univ_product_univ.symm]
+  rw [Finset.sum_product]
+  simp only [Finset.sum_ite_eq', Finset.mem_univ, ↓reduceIte]
+  rw [show Finset.univ (α := (dA × dB) × dB) = (Finset.univ ×ˢ Finset.univ : Finset ((dA × dB) × dB))
+    from Finset.univ_product_univ.symm]
+  rw [Finset.sum_product]
+  simp only [RCLike.star_def, Finset.sum_ite_irrel, Finset.sum_const_zero, Finset.sum_ite_eq',
+    Finset.mem_univ, ↓reduceIte]
+  simp_rw [mul_comm]
 
 private lemma W_mat_eq_three_factors [Nonempty dA] [Nonempty dB] [Nonempty dC]
     (ρAB : HermitianMat (dA × dB) ℂ) (σBC : HermitianMat (dB × dC) ℂ) :
