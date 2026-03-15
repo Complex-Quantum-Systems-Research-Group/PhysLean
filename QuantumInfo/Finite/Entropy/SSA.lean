@@ -579,10 +579,84 @@ private lemma W_mat_entry (ρAB : HermitianMat (dA × dB) ℂ) (σBC : Hermitian
         (V_sigma σBC)ᴴ i.2 (b_star, (j.1.2, j.2)) := by
   obtain ⟨⟨a, b⟩, c⟩ := i
   obtain ⟨⟨a', b'⟩, c'⟩ := j
-  rw [W_mat_eq_factored]
-  simp [Matrix.mul_apply, Fintype.sum_prod_type, Matrix.one_apply,
-    V_rho, V_sigma, map_to_tensor_MES]
-  sorry
+  simp only [W_mat, V_sigma, V_rho, map_to_tensor_MES]
+  simp only [Matrix.mul_apply, Matrix.kroneckerMap_apply, Matrix.reindex_apply,
+    Matrix.submatrix_apply, Matrix.conjTranspose_apply, Matrix.one_apply,
+    Matrix.of_apply, Equiv.prodAssoc_apply,
+    Equiv.prodComm_apply, Equiv.prodComm_symm, Equiv.refl_apply, Equiv.refl_symm,
+    Equiv.prodCongr_apply, Equiv.prodCongr_symm,
+    Equiv.symm_trans_apply,
+    Prod.swap, Equiv.symm_symm,  Prod.map_apply]
+  simp only [apply_ite star, star_zero, mul_ite, mul_one, mul_zero, star_mul', star_sum]
+  simp only [Finset.mul_sum, Finset.sum_mul]
+  rw [show Finset.univ (α := (dA × dB) × dC) =
+    (Finset.univ ×ˢ Finset.univ : Finset ((dA × dB) × dC))
+    from Finset.univ_product_univ.symm]
+  rw [Finset.sum_product]
+  rw [show Finset.univ (α := dA × dB) =
+    (Finset.univ ×ˢ Finset.univ : Finset (dA × dB))
+    from Finset.univ_product_univ.symm]
+  simp_rw [Finset.sum_product]
+  rw [Finset.sum_comm (s := Finset.univ (α := dA))]
+  simp_rw [← Finset.sum_mul, ← Finset.mul_sum]
+  -- Goal: LHS (triple sum, clean) = RHS (sums with ite conditions)
+  -- Strategy: simplify ite sums on RHS, relate reindex terms, match.
+  -- Step 1: collapse ite sums using Finset.sum_eq_single
+  -- Convert ↑A i j to A i j throughout
+  simp only [HermitianMat.mat_apply]
+  -- Collapse ite sums: ρ part
+  have h_ite_rho : ∀ (i : dA) (x : dB) (f : dA × dB → ℂ),
+      (∑ i_1 : (dA × dB) × dB, if i_1.1.1 = i ∧ i_1.1.2 = i_1.2 then if x = i_1.2 then f i_1.1 else 0 else 0) =
+      f (i, x) := by
+    intro i x f; rw [Finset.sum_eq_single ⟨(i, x), x⟩]
+    · simp
+    · intro ⟨⟨a₀, b₀⟩, b₁⟩ _ hne; split_ifs with h h2 <;> simp_all [Prod.mk.injEq]
+    · intro h; exact absurd (Finset.mem_univ _) h
+  simp_rw [h_ite_rho]
+  -- σ part: pull out constant factor, then collapse
+  simp_rw [← Finset.sum_mul]
+  -- Now the σ inner sum has the same shape as h_ite_rho but for dC×dB
+  have h_ite_sigma : ∀ (i : dC) (x : dB) (f : dC × dB → ℂ),
+      (∑ i_1 : (dC × dB) × dB, if i_1.1.1 = i ∧ i_1.1.2 = i_1.2 then if x = i_1.2 then f i_1.1 else 0 else 0) =
+      f (i, x) := by
+    intro i x f; rw [Finset.sum_eq_single ⟨(i, x), x⟩]
+    · simp
+    · intro ⟨⟨a₀, b₀⟩, b₁⟩ _ hne; split_ifs with h h2 <;> simp_all [Prod.mk.injEq]
+    · intro h; exact absurd (Finset.mem_univ _) h
+  -- Collapse σ ite sum using conv to navigate into the RHS
+  conv_rhs =>
+    arg 2; ext x_outer
+    arg 2; arg 2; ext x_1
+    arg 1
+    rw [h_ite_sigma x_1 x_outer (fun p => star ((σBC.reindex (Equiv.prodComm dB dC)).sqrt (c', b') p))]
+  -- Now relate reindexed σBC terms to original terms
+  -- cfc_reindex: (A.reindex e).sqrt = A.sqrt.reindex e
+  simp only [show (σBC.reindex (Equiv.prodComm dB dC)).sqrt =
+    σBC.sqrt.reindex (Equiv.prodComm dB dC) from
+    σBC.cfc_reindex Real.sqrt (Equiv.prodComm dB dC)]
+  -- traceRight of reindex(prodComm) = traceLeft
+  simp only [show (σBC.reindex (Equiv.prodComm dB dC)).traceRight = σBC.traceLeft from by
+    ext i j; simp only [HermitianMat.traceRight, HermitianMat.traceLeft,
+      Matrix.traceRight, Matrix.traceLeft, HermitianMat.reindex,
+      Matrix.reindex_apply, HermitianMat.mat_mk, Matrix.of_apply,
+      Matrix.submatrix_apply, Equiv.prodComm_symm, Equiv.prodComm_apply, Prod.swap]]
+  -- Hermiticity
+  have h1 : σBC.sqrt.matᴴ = σBC.sqrt.mat := σBC.sqrt.2
+  have h2 : σBC.traceLeft⁻¹.sqrt.matᴴ = σBC.traceLeft⁻¹.sqrt.mat := σBC.traceLeft⁻¹.sqrt.2
+  -- Expand product of sums and match
+  simp_rw [Finset.sum_mul, Finset.mul_sum]
+  -- Both sides are triple sums with the same structure. Match element-wise.
+  refine Finset.sum_congr rfl fun x_bd _ => Finset.sum_congr rfl fun x_1 _ =>
+    Finset.sum_congr rfl fun x_2 _ => ?_
+  -- Now a single-term equality
+  -- star of reindexed entry: def-eq gives star(σBC.sqrt (b',c') (x_bd,x_2))
+  -- then Hermiticity gives σBC.sqrt (x_bd,x_2) (b',c')
+  have hs1 : star ((σBC.sqrt.reindex (Equiv.prodComm dB dC)) (c', b') (x_2, x_bd)) =
+      σBC.sqrt (x_bd, x_2) (b', c') :=
+    CStarMatrix.star_apply_of_isSelfAdjoint h1
+  have hs2 : star (σBC.traceLeft⁻¹.sqrt x_2 c) = σBC.traceLeft⁻¹.sqrt c x_2 :=
+    CStarMatrix.star_apply_of_isSelfAdjoint h2
+  rw [hs1, hs2]; ring
 
 /-- Element-wise identity: RHS = ∑_{b*} V_rho * V_sigma†. -/
 private lemma RHS_entry (ρAB : HermitianMat (dA × dB) ℂ) (σBC : HermitianMat (dB × dC) ℂ)
