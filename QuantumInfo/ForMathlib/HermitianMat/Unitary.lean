@@ -29,7 +29,7 @@ open Kronecker in
 def unitary_kron (a : 𝐔[α]) (b : 𝐔[β]) : 𝐔[α × β] :=
   ⟨_, kron_unitary a b⟩
 
-scoped notation a:60 " ⊗ᵤ " b:60 => unitary_kron a b
+scoped infixl:60 " ⊗ᵤ " => unitary_kron
 
 @[simp]
 theorem unitary_kron_apply (a : 𝐔[α]) (b : 𝐔[β]) (i₁ i₂ : α) (j₁ j₂ : β) :
@@ -39,5 +39,30 @@ theorem unitary_kron_apply (a : 𝐔[α]) (b : 𝐔[β]) (i₁ i₂ : α) (j₁ 
 @[simp]
 theorem unitary_kron_one_one : (1 : 𝐔[α]) ⊗ᵤ (1 : 𝐔[β]) = (1 : 𝐔[α × β]) := by
   simp [Matrix.unitary_kron]
+
+--TODO: Cleanup? Or at least write the signature better. Definitely belongs in Mathlib in some form
+--This is really a statement about isometries, not unitaries, too...
+variable {d : Type*} [Fintype d] [DecidableEq d]
+
+/--
+For a unitary matrix C, the row sums of ‖C i j‖^2 equal 1.
+-/
+lemma unitary_row_sum_norm_sq (C : Matrix d d ℂ) (hC : C * C.conjTranspose = 1) (i : d) :
+    ∑ j, ‖C i j‖ ^ 2 = 1 := by
+  replace hC := congr($hC i i)
+  simp only [Matrix.mul_apply, Matrix.conjTranspose_apply, RCLike.star_def, Complex.mul_conj,
+    Complex.normSq_eq_norm_sq, Complex.ofReal_pow, Matrix.one_apply_eq] at hC
+  exact_mod_cast hC
+
+/--
+For a unitary matrix C, the column sums of ‖C i j‖^2 equal 1.
+-/
+lemma unitary_col_sum_norm_sq (C : Matrix d d ℂ) (hC : C.conjTranspose * C = 1) (j : d) :
+    ∑ i, ‖C i j‖ ^ 2 = 1 := by
+  replace hC := congr($hC j j)
+  simp_rw [Matrix.mul_apply, mul_comm] at hC
+  simp only [Matrix.conjTranspose_apply, RCLike.star_def, Matrix.one_apply_eq,
+    Complex.mul_conj, Complex.normSq_eq_norm_sq, Complex.ofReal_pow] at hC
+  exact_mod_cast hC
 
 end Matrix
