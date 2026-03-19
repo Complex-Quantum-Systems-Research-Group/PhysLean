@@ -113,10 +113,14 @@ lemma mdifferentiable_manifoldStructure_iff_differentiable {M d} [NormedAddCommG
     apply (mdifferentiableAt_iff_differentiableAt.mpr h).comp (I' := 𝓘(ℝ, Space d))
     exact (modelDiffeo.mdifferentiable  (WithTop.top_ne_zero)).mdifferentiableAt
 
+
+TODO "3XMN6" "Make the version of the derivative described through
+  `deriv_eq_mfderiv_manifoldStructure` the definition of `deriv` and prove the
+  equivalence with the current definition, under suitable conditions."
+
 open Manifold in
 /-- The spatial-derivative in terms of the derivative of functions between
-  manifolds with the manifold structure `Space.manifoldStructure d`.
-  This should eventually be used as the definition of `deriv`. -/
+  manifolds with the manifold structure `Space.manifoldStructure d`. -/
 lemma deriv_eq_mfderiv_manifoldStructure {M d} [NormedAddCommGroup M] [NormedSpace ℝ M]
     (μ : Fin d) (f : Space d → M) (x : Space d) :
     deriv μ f x = mfderiv (Space.manifoldStructure d) 𝓘(ℝ, M) f x (EuclideanSpace.single μ 1) := by
