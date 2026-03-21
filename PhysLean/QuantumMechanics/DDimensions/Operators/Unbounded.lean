@@ -33,7 +33,10 @@ Definitions:
 
 - A. Definition
 - B. Basic identities
-- C. Partial order
+- C. Instances
+  - C.1. Partial order
+  - C.2. Zero
+  - C.3. AddZeroClass
 - D. Closure
 - E. Adjoint
 - F. Symmetric operators
@@ -112,17 +115,160 @@ lemma inner_map_polarization' {T : UnboundedOperator H H} (x y : T.domain) :
 end
 
 /-!
-## C. Partial order
+## C. Instances
+-/
+
+section
+
+open Classical
+
+/-!
+### C.1. Partial order
 
 Unbounded operators inherit the structure of a poset from `LinearPMap`,
 but *not* that of a `SemilatticeInf` because `U₁.domain ⊓ U₂.domain` may not be dense.
 -/
 
-instance partialOrder : PartialOrder (UnboundedOperator H H') where
+instance : PartialOrder (UnboundedOperator H H') where
   le U₁ U₂ := U₁.toLinearPMap ≤ U₂.toLinearPMap
   le_refl _ := le_refl _
   le_trans _ _ _ h₁₂ h₂₃ := le_trans h₁₂ h₂₃
   le_antisymm _ _ h h' := ext <| le_antisymm h h'
+
+/-!
+### C.2. Zero
+-/
+
+-- A zero LinearPMap (any domain) is closable
+lemma isClosable_of_zero {E F : Type*} [NormedAddCommGroup E] [InnerProductSpace ℂ E]
+    [NormedAddCommGroup F] [InnerProductSpace ℂ F] {f : LinearPMap ℂ E F} (hf : f.toFun' = 0) :
+    f.IsClosable := by
+  use f.graph.topologicalClosure.toLinearPMap
+  refine Eq.symm <| toLinearPMap_graph_eq f.graph.topologicalClosure fun x hx _ ↦ ?_
+  obtain ⟨b, hb, hb'⟩ := mem_closure_iff_seq_limit.mp hx
+  have (n : ℕ) : (b n).2 = 0 := by specialize hb n; simp_all
+  rw [nhds_prod_eq, Filter.tendsto_prod_iff'] at hb'
+  simp_all
+
+instance : Zero (UnboundedOperator H H') := ⟨0, by simp, isClosable_of_zero rfl⟩
+
+@[simp]
+lemma zero_toLinearPMap : (0 : UnboundedOperator H H').toLinearPMap = 0 := rfl
+
+instance : Inhabited (UnboundedOperator H H') := ⟨instZero.zero⟩
+
+/-!
+### C.3. AddZeroClass
+
+In defining addition for unbounded operators we use two junk values.
+- If `U₁.domain ∩ U₂.domain` is not dense, then `U₁ + U₂ = 0` (domain `⊤`)
+- If `U₁.domain ∩ U₂.domain` is dense but `U₁.toLinearPMap + U₂.toLinearPMap` is not closable,
+  then `U₁ + U₂ = 0` with domain `U₁.domain ∩ U₂.domain`.
+This ensures that distributivity, `c • (U₁ + U₂) = c • U₁ + c • U₂`, holds for `(c : ℂ) = 0`.
+-/
+
+noncomputable instance : Add (UnboundedOperator H H') where
+  add U₁ U₂ :=
+    if hD : Dense (U₁.domain ⊓ U₂.domain : Set H) then
+      if hC : (U₁.toLinearPMap + U₂.toLinearPMap).IsClosable then
+        ⟨U₁.toLinearPMap + U₂.toLinearPMap, hD, hC⟩
+      else ⟨⟨U₁.domain ⊓ U₂.domain, 0⟩, hD, isClosable_of_zero rfl⟩
+    else 0
+
+/-- The domain of `U₁ + U₂` is `D(U₁) ∩ D(U₂)` when it is dense. -/
+lemma add_domain_of_dense {U₁ U₂ : UnboundedOperator H H'}
+    (hD : Dense (U₁.domain ⊓ U₂.domain : Set H)) : (U₁ + U₂).domain = U₁.domain ⊓ U₂.domain := by
+  rw [HAdd.hAdd, instHAdd, Add.add, instAdd]
+  by_cases hC : (U₁.toLinearPMap + U₂.toLinearPMap).IsClosable
+  · simp only [hD, hC, ↓reduceDIte, LinearPMap.add_domain]
+  · simp only [hD, hC, ↓reduceDIte]
+
+/-- The junk value for `U₁ + U₂` has domain all of `H` when `D(U₁) ∩ D(U₂)` is not dense. -/
+lemma add_domain_of_not_dense {U₁ U₂ : UnboundedOperator H H'}
+    (hD : ¬Dense (U₁.domain ⊓ U₂.domain : Set H)) : (U₁ + U₂).domain = ⊤ := by
+  rw [HAdd.hAdd, instHAdd, Add.add, instAdd]
+  simp only [hD, ↓reduceDIte, zero_toLinearPMap, zero_domain]
+
+lemma mem_domain_of_dense {U₁ U₂ : UnboundedOperator H H'}
+    (hD : Dense (U₁.domain ⊓ U₂.domain : Set H)) (ψ : (U₁ + U₂).domain) :
+    ↑ψ ∈ U₁.domain ∧ ↑ψ ∈ U₂.domain :=
+  mem_inf.mp <| (add_domain_of_dense hD) ▸ ψ.2
+
+/-- `U₁ + U₂` is the unbounded operator corresponding to `U₁.toLinearPMap + U₂.toLinearPMap`,
+  provided it is both densely defined and closable. -/
+lemma add_toLinearPMap_of_dense_closable {U₁ U₂ : UnboundedOperator H H'}
+    (hD : Dense (U₁.domain ⊓ U₂.domain : Set H))
+    (hC : (U₁.toLinearPMap + U₂.toLinearPMap).IsClosable) :
+    (U₁ + U₂).toLinearPMap = U₁.toLinearPMap + U₂.toLinearPMap := by
+  rw [HAdd.hAdd, instHAdd, Add.add, instAdd]
+  simp only [hD, hC, ↓reduceDIte]
+
+/-- The junk value for `U₁ + U₂` when `D(U₁) ∩ D(U₂)` is dense and `U₁ + U₂` is not closable. -/
+lemma add_toLinearPMap_of_dense_not_closable {U₁ U₂ : UnboundedOperator H H'}
+    (hD : Dense (U₁.domain ⊓ U₂.domain : Set H))
+    (hC : ¬(U₁.toLinearPMap + U₂.toLinearPMap).IsClosable) :
+    (U₁ + U₂).toLinearPMap = ⟨U₁.domain ⊓ U₂.domain, 0⟩ := by
+  rw [HAdd.hAdd, instHAdd, Add.add, instAdd]
+  simp only [hD, hC, ↓reduceDIte]
+
+/-- The junk value for `U₁ + U₂` when `D(U₁) ∩ D(U₂)` is not dense. -/
+lemma add_toLinearPMap_of_not_dense {U₁ U₂ : UnboundedOperator H H'}
+    (hD : ¬Dense (U₁.domain ⊓ U₂.domain : Set H)) : (U₁ + U₂).toLinearPMap = 0 := by
+  rw [HAdd.hAdd, instHAdd, Add.add, instAdd]
+  simp only [hD, ↓reduceDIte, zero_toLinearPMap]
+
+/-- `(U₁ + U₂)ψ = U₁ψ + U₂ψ` provided `U₁ + U₂` is not given by a junk value. -/
+lemma add_apply_of_dense_closable {U₁ U₂ : UnboundedOperator H H'}
+    (hD : Dense (U₁.domain ⊓ U₂.domain : Set H))
+    (hC : (U₁.toLinearPMap + U₂.toLinearPMap).IsClosable) (ψ : (U₁ + U₂).domain) :
+    (U₁ + U₂) ψ = U₁ ⟨ψ, (mem_domain_of_dense hD ψ).1⟩ + U₂ ⟨ψ, (mem_domain_of_dense hD ψ).2⟩ := by
+  obtain ⟨_, hb⟩ := LinearPMap.dExt_iff.mp <| add_toLinearPMap_of_dense_closable hD hC
+  simp only [Subtype.forall] at hb
+  specialize hb ψ ψ.2 ψ (mem_domain_of_dense hD ψ) rfl
+  simp_all [LinearPMap.add_apply]
+
+noncomputable instance : AddZeroClass (UnboundedOperator H H') where
+  zero_add U := by
+    apply UnboundedOperator.ext
+    rw [← zero_add U.toLinearPMap]
+    exact add_toLinearPMap_of_dense_closable (by simp [U.dense_domain]) (by simp [U.is_closable])
+  add_zero U := by
+    apply UnboundedOperator.ext
+    rw [← add_zero U.toLinearPMap]
+    exact add_toLinearPMap_of_dense_closable (by simp [U.dense_domain]) (by simp [U.is_closable])
+
+/-- Addition of unbounded operators is associative when neither of the intermediate additions,
+  `U₁ + U₂` and `U₂ + U₃`, is given by a junk value. -/
+lemma add_assoc {U₁ U₂ U₃ : UnboundedOperator H H'}
+    (hD₁₂ : Dense (U₁.domain ⊓ U₂.domain : Set H)) (hC₁₂ : (U₁.1 + U₂.1).IsClosable)
+    (hD₂₃ : Dense (U₂.domain ⊓ U₃.domain : Set H)) (hC₂₃ : (U₂.1 + U₃.1).IsClosable) :
+    U₁ + U₂ + U₃ = U₁ + (U₂ + U₃) := by
+  apply UnboundedOperator.ext
+  by_cases hD : Dense (U₁.domain ⊓ U₂.domain ⊓ U₃.domain : Set H)
+  · have hD' : Dense (U₁.domain ⊓ (U₂.domain ⊓ U₃.domain) : Set H) := by grind
+    have hD₁₂' : (U₁ + U₂).domain = U₁.domain ⊓ U₂.domain := add_domain_of_dense hD₁₂
+    have hD₂₃' : (U₂ + U₃).domain = U₂.domain ⊓ U₃.domain := add_domain_of_dense hD₂₃
+    have h₁₂ : (U₁ + U₂).1 = U₁.1 + U₂.1 := add_toLinearPMap_of_dense_closable hD₁₂ hC₁₂
+    have h₂₃ : (U₂ + U₃).1 = U₂.1 + U₃.1 := add_toLinearPMap_of_dense_closable hD₂₃ hC₂₃
+    by_cases hC : (U₁.1 + U₂.1 + U₃.1).IsClosable
+    · -- No junk values anywhere: addition is associative
+      have hC' : (U₁.1 + (U₂.1 + U₃.1)).IsClosable := by grind
+      rw [add_toLinearPMap_of_dense_closable (by simp_all) (h₁₂ ▸ hC), h₁₂,
+        add_toLinearPMap_of_dense_closable (by simp_all) (h₂₃ ▸ hC'), h₂₃]
+      grind
+    · -- D(U₁) ∩ D(U₂) ∩ D(U₃) is dense but neither side is closable:
+      -- both sides are the junk zero operator with domain D(U₁) ∩ D(U₂) ∩ D(U₃)
+      have hC' : ¬(U₁.1 + (U₂.1 + U₃.1)).IsClosable := by grind
+      rw [add_toLinearPMap_of_dense_not_closable (by simp_all) (h₁₂ ▸ hC), hD₁₂',
+        add_toLinearPMap_of_dense_not_closable (by simp_all) (h₂₃ ▸ hC'), hD₂₃']
+      grind
+  · -- D(U₁) ∩ D(U₂) ∩ D(U₃) is not dense: both sides are the junk zero operator with domain ⊤
+    have hD' : ¬Dense (U₁.domain ⊓ (U₂.domain ⊓ U₃.domain) : Set H) := by grind
+    have hD₁₂' : ¬Dense ((U₁ + U₂).domain ⊓ U₃.domain : Set H) := add_domain_of_dense hD₁₂ ▸ hD
+    have hD₂₃' : ¬Dense (U₁.domain ⊓ (U₂ + U₃).domain : Set H) := add_domain_of_dense hD₂₃ ▸ hD'
+    rw [add_toLinearPMap_of_not_dense hD₁₂', add_toLinearPMap_of_not_dense hD₂₃']
+
+end
 
 /-!
 ## D. Closure
