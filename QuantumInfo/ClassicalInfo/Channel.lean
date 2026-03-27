@@ -1,6 +1,6 @@
 /-
 Copyright (c) 2025 Alex Meiburg. All rights reserved.
-Released under MIT license as described in the file LICENSE.
+Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Alex Meiburg
 -/
 import QuantumInfo.ClassicalInfo.Distribution
@@ -54,7 +54,7 @@ structure DMChannel where
 namespace DMChannel
 
 /-- Apply a discrete memoryless channel to an n-character string. -/
-def on_fin (C : DMChannel I O) {n : ℕ} (is : Fin n → I) : Distribution (Fin n → O) :=
+def on_fin (C : DMChannel I O) {n : ℕ} (is : Fin n → I) : ProbDistribution (Fin n → O) :=
   ⟨fun os ↦ ∏ k, C.symb_dist (is k) (os k), by
     -- change ∑ os in Fintype.piFinset fun x => (Finset.univ : Finset O), ∏ k : Fin n, ((C.symb_dist (is k)) (os k) : ℝ) = 1
     -- have : ∀i, Finset.sum Finset.univ (C.symb_dist i) = 1 :=
@@ -64,7 +64,7 @@ def on_fin (C : DMChannel I O) {n : ℕ} (is : Fin n → I) : Distribution (Fin 
     sorry⟩
 
 /-- Apply a discrete memoryless channel to a list. -/
-def on_list (C : DMChannel I O) (is : List I) : Distribution (Fin (is.length) → O) :=
+def on_list (C : DMChannel I O) (is : List I) : ProbDistribution (Fin (is.length) → O) :=
   C.on_fin is.get
 
 end DMChannel

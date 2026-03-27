@@ -1,6 +1,6 @@
 /-
 Copyright (c) 2025 Leonardo A Lessa. All rights reserved.
-Released under MIT license as described in the file LICENSE.
+Released under Apache 2.0 license as described in the file LICENSE.
 Authors: Leonardo A Lessa
 -/
 import QuantumInfo.Finite.MState
