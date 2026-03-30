@@ -54,7 +54,7 @@
 
 🎯 The project shall not be tied to any specific AI model or tool.
 
-🎯 The project shall be for **main-stream** physics only.
+🎯 The project shall be for **mainstream** physics only.
 
 
 ## Contributing to PhysLib
@@ -68,6 +68,7 @@ If you unsure where you would like to contribute, you may find ideas on:
 - our [open issues](https://github.com/leanprover-community/physlib/issues).
 - our [todo list](https://physlean.com/TODOList)
 - our [Get Involved page](https://physlean.com/GetInvolved.html)
+- the [quantumInfo todo page](./QuantumInfo/WildeTODO.md)
 > [!NOTE]
 > If stuck at any point there are lots of people happly to help on the [PhysLib zulip](https://leanprover.zulipchat.com/#narrow/channel/479953-PhysLib)
 
@@ -88,6 +89,17 @@ or
 - Run `lake exe cache get`. The command `lake` should have been installed when you installed Lean.
 - Run `lake build`.
 - Open the directory (not a single file) in Visual Studio Code (or another Lean compatible code editor).
+
+At the moment PhysLib is divided into two essentially disjoint halves, `PhysLean` and `QuantumInfo`.
+These were two repositories that merged in an effort to create a more cohesive ecosystem for physics
+in Lean. There is ongoing effort to integrate them more deeply and share code, but at the moment
+they offer two separate _build targets_: `PhysLean` and `QuantumInfo`, as specified in `lakefile.lean`.
+They are both default targets, so `lake build` will build both.
+
+If you only want to build one, `lake build PhysLean` or `lake build QuantumInfo` will target just one
+or the other. This could be useful if you're working on one part or the other and want to see that
+all your changes worked, or if you're only interested in having one or the other as a dependency in
+your project.
 
 ### Making a pull-request
 
