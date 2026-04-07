@@ -20,9 +20,11 @@ public import Mathlib.Combinatorics.SimpleGraph.Connectivity.Subgraph
   and the mole numbers N_1, N_2 , ... , N_r, of the chemical components.
 -/
 @[expose] public section
+variable {n : ℕ}
 
+abbrev StateSpace (n : ℕ) := Fin n → ℝ
 abbrev ThermoState := ℝ × ℝ × ℝ
-
+/-- List of intensive characteristics of a system -/
 abbrev ThermoState.U (s : ThermoState) : ℝ := s.1
 abbrev ThermoState.V (s : ThermoState) : ℝ := s.2.1
 abbrev ThermoState.N (s : ThermoState) : ℝ := s.2.2
@@ -82,7 +84,6 @@ def ConstraintManifold
       ∧ 0 ≤ p.1.V ∧ 0 ≤ p.2.V
       ∧ 0 ≤ p.1.N ∧ 0 ≤ p.2.N }
 
-
 def totalEntropy
     (sys1 sys2 : ThermodynamicSystem)
     (p : ThermoState × ThermoState) : ℝ :=
@@ -111,7 +112,7 @@ noncomputable def Temperature (sys : ThermodynamicSystem) (state : ThermoState) 
 noncomputable def TemperatureImpliesEntropy (sys : ThermodynamicSystem) (state : ThermoState) :=
   Temperature sys state = 0 → sys.S state = 0
 
-theorem extensive_partials_eq
+theorem intensive_partials_eq
   (sys1 sys2 : ThermodynamicSystem)
   (eq_state : ThermoState × ThermoState)
   (h_eq : EntropyMaximized sys1 sys2 eq_state):
@@ -156,7 +157,7 @@ theorem equillibrium_temperature_eq
     unfold Temperature
     congr 1
     have h : fderiv ℝ sys1.S eq_state.1 = fderiv ℝ sys2.S eq_state.2 :=
-      extensive_partials_eq sys1 sys2 eq_state h_eq
+      intensive_partials_eq sys1 sys2 eq_state h_eq
     have h2 := congr_arg (· (((1,0,0)) : ThermoState)) h
     exact h2
 
